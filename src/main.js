@@ -157,13 +157,19 @@ async function start() {
     camera.aspect = width / height;
     const visibleHeight = Math.max(desktop ? 3.25 : 3.85, (desktop ? 4.12 : 4.45) / camera.aspect);
     const distance = visibleHeight / (2 * Math.tan(THREE.MathUtils.degToRad(16)));
-    const camY = desktop ? 1.1 + distance * 0.15 : 1.30 + distance * 0.12;
-    const lookAtY = desktop ? 1.03 : 1.22;
+    const camY = desktop ? 1.1 + distance * 0.15 : 1.18 + distance * 0.08;
+    const lookAtY = desktop ? 1.03 : 1.10;
     camera.position.set(0.19, camY, distance);
     camera.lookAt(0.19, lookAtY, 0);
     camera.setViewOffset(width, height, -left, -top, canvasWidth, canvasHeight);
     camera.updateProjectionMatrix();
     rageMeter.resize();
+    if (rageMeter?.container && width > 0) {
+      const centerVec = new THREE.Vector3(0, 0, 0);
+      centerVec.project(camera);
+      const slimeStageX = -left + (centerVec.x + 1) * canvasWidth / 2;
+      rageMeter.container.style.left = `${Math.round(slimeStageX)}px`;
+    }
   };
   const observer = new ResizeObserver(resize);
   observer.observe(stage);

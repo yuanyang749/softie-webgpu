@@ -3,3 +3,4 @@ dist/
 .DS_Store
 artifacts
 .playwright-mcp
+aa.js

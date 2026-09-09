@@ -128,27 +128,35 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
     }
   }
 
-  // Frosted empty track background
-  let emptyTrack = vec3f(0.14, 0.15, 0.17);
+  // White translucent glass tube body & optics
+  let glassBase = vec3f(0.98, 0.99, 1.0);
+  // Smooth, continuous cylindrical lighting without harsh horizontal streak lines
+  let glassCylinder = 0.92 + 0.08 * sin((clamp(p.y / halfH, -1.0, 1.0) + 1.0) * 1.5708);
+  let emptyTrack = glassBase * glassCylinder;
 
-  // Cylindrical glass top highlight streak
-  let topGloss = smoothstep(0.045, 0.0, abs(p.y - 0.25)) * 0.35 * (1.0 - smoothstep(0.0, 0.02, dContainer));
-  let bottomShadow = smoothstep(-0.25, -0.42, p.y) * 0.20;
+  // Inner glass wall rim refraction (fresnel-like refraction around capsule perimeter)
+  let innerWallRim = smoothstep(-0.08, 0.0, dContainer) * 0.35 * innerMask;
 
+  // Blend empty frosted glass with vibrant liquid
   var finalRgb = mix(emptyTrack, liquidColor, isLiquid);
-  finalRgb += vec3f(topGloss) - vec3f(bottomShadow);
+
+  // Layer subtle perimeter glass rim refraction
+  finalRgb += vec3f(innerWallRim * 0.5);
 
   // White hit flash
   if (u.hitFlash > 0.01) {
-    finalRgb = mix(finalRgb, vec3f(1.0, 0.98, 0.92), u.hitFlash * 0.7 * isLiquid);
+    finalRgb = mix(finalRgb, vec3f(1.0, 1.0, 1.0), u.hitFlash * 0.65 * isLiquid);
   }
 
-  // Outer border rim glow
-  let borderCol = mix(vec3f(0.32, 0.34, 0.38), glowCol, (borderGlow + u.progress * 0.35));
+  // Outer border rim glow (pure white edge shifting towards glowing color when raging)
+  let borderCol = mix(vec3f(1.0, 1.0, 1.0), glowCol, clamp(borderGlow * 0.5 + u.progress * 0.5, 0.0, 1.0));
   finalRgb = mix(finalRgb, borderCol, borderGlow);
 
-  let alpha = (innerMask * 0.92 + borderGlow * 0.5);
-  return vec4f(finalRgb * alpha, alpha);
+  // Translucent alpha: empty tube is delicately transparent (0.24), liquid is vibrant & opaque (0.94)
+  let contentAlpha = mix(0.24, 0.94, isLiquid);
+  let totalAlpha = clamp(contentAlpha * innerMask + borderGlow * 0.7, 0.0, 1.0);
+
+  return vec4f(finalRgb * totalAlpha, totalAlpha);
 }
 `;
 
@@ -275,9 +283,9 @@ export class RageMeter {
 
   pulse(impact = 1.0) {
     this.hitFlash = 1.0;
-    // Spring squash & stretch
-    this.scaleVelX = 0.16 * impact;
-    this.scaleVelY = -0.16 * impact;
+    // Subtle jelly spring squash & stretch (avoids excessive horizontal ballooning)
+    this.scaleVelX = 0.04 * impact;
+    this.scaleVelY = -0.06 * impact;
     // Slosh impulse
     this.sloshVelocity += (Math.random() - 0.5) * 1.8 * impact + 0.8;
   }
@@ -322,8 +330,8 @@ export class RageMeter {
     this.container.dataset.mood = this.isSleeping ? 'sleepy' : isMax ? 'max' : this.mood;
     this.container.classList.toggle('is-max-rage', isMax);
 
-    // Apply spring squash & stretch
-    this.container.style.transform = `scale(${this.scaleX.toFixed(3)}, ${this.scaleY.toFixed(3)})`;
+    // Apply spring squash & stretch (preserving horizontal centering)
+    this.container.style.transform = `translateX(-50%) scale(${this.scaleX.toFixed(3)}, ${this.scaleY.toFixed(3)})`;
 
     // Update percent text
     if (this.percentEl) {
@@ -395,8 +403,13 @@ export class RageMeter {
       ctx.roundRect(4, 4, w - 8, h - 8, radius);
       ctx.clip();
 
-      // Track background
-      ctx.fillStyle = 'rgba(28, 30, 34, 0.4)';
+      // Track background (White frosted transparent glass tube)
+      const glassBg = ctx.createLinearGradient(0, 4, 0, h - 4);
+      glassBg.addColorStop(0, 'rgba(255, 255, 255, 0.60)');
+      glassBg.addColorStop(0.25, 'rgba(255, 255, 255, 0.22)');
+      glassBg.addColorStop(0.75, 'rgba(255, 255, 255, 0.18)');
+      glassBg.addColorStop(1, 'rgba(255, 255, 255, 0.45)');
+      ctx.fillStyle = glassBg;
       ctx.fillRect(0, 0, w, h);
 
       // Liquid fill with wave
@@ -449,9 +462,10 @@ export class RageMeter {
         }
       }
 
-      // Top gloss streak
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
-      ctx.fillRect(8, 6, w - 16, h * 0.22);
+      // Glass inner rim outline
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
 
       ctx.restore();
     }

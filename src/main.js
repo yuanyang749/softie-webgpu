@@ -195,6 +195,13 @@ async function start() {
   window.addEventListener('pointermove', followPointer, { passive: true });
   document.documentElement.addEventListener('pointerleave', clearGaze);
   let pointerId = null;
+  const touches = new Map();
+  let pinchDistance = 0;
+  let pinchSoundRatio = 1;
+  const pinchA = new THREE.Vector3();
+  const pinchB = new THREE.Vector3();
+  const pinchMid = new THREE.Vector3();
+  const pinchAxis = new THREE.Vector3();
   let pressTime = 0, pressX = 0, pressY = 0, moved = false;
   let lastMoveTime = 0, lastMoveX = 0, lastMoveY = 0;
   let maxStretchDist = 0;
@@ -206,7 +213,29 @@ async function start() {
     raycaster.setFromCamera(ndc, camera);
   };
   canvas.addEventListener('pointerdown', event => {
-    if (pointerId !== null || event.button !== 0) return;
+    if (event.button !== 0) return;
+    if (pointerId !== null) {
+      if (event.pointerType !== 'touch' || touches.size !== 1 || touches.has(event.pointerId)) return;
+      // The first finger must hit the body; the second may land beside its edge.
+      ray(touches.get(pointerId));
+      if (!raycaster.ray.intersectPlane(plane, pinchA)) return;
+      ray(event);
+      if (!raycaster.ray.intersectPlane(plane, pinchB)) return;
+      const first = touches.get(pointerId);
+      pinchDistance = Math.hypot(event.clientX - first.clientX, event.clientY - first.clientY);
+      if (pinchDistance < 16) return;
+      touches.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+      canvas.setPointerCapture(event.pointerId);
+      pinchMid.copy(pinchA).add(pinchB).multiplyScalar(0.5);
+      physics.beginGrab(pinchMid.clone().sub(slime.group.position), pinchMid);
+      physics.beginPinch(pinchAxis.copy(pinchB).sub(pinchA));
+      pinchSoundRatio = 1;
+      moved = true;
+      isDizzyPending = false;
+      dizzyUntil = 0;
+      event.preventDefault();
+      return;
+    }
     lastActivity = performance.now();
     ray(event);
     const hit = raycaster.intersectObject(slime.body, false)[0];
@@ -221,6 +250,7 @@ async function start() {
 
     if (!hit) return;
     pointerId = event.pointerId;
+    if (event.pointerType === 'touch') touches.set(pointerId, { clientX: event.clientX, clientY: event.clientY });
     pressTime = performance.now(); pressX = event.clientX; pressY = event.clientY; moved = false;
     lastMoveTime = performance.now(); lastMoveX = event.clientX; lastMoveY = event.clientY;
     maxStretchDist = 0;
@@ -242,6 +272,27 @@ async function start() {
     event.preventDefault();
   });
   canvas.addEventListener('pointermove', event => {
+    if (touches.has(event.pointerId)) {
+      Object.assign(touches.get(event.pointerId), { clientX: event.clientX, clientY: event.clientY });
+      if (touches.size === 2) {
+        const [a, b] = touches.values();
+        ray(a);
+        const hitA = raycaster.ray.intersectPlane(plane, pinchA);
+        ray(b);
+        if (hitA && raycaster.ray.intersectPlane(plane, pinchB)) {
+          physics.moveGrab(pinchMid.copy(pinchA).add(pinchB).multiplyScalar(0.5));
+          const ratio = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY) / pinchDistance;
+          physics.movePinch(ratio);
+          if (Math.abs(ratio - pinchSoundRatio) > 0.12) {
+            if (ratio > pinchSoundRatio) sound.playStretch(Math.min(1, Math.abs(ratio - 1)));
+            else sound.playSquish();
+            pinchSoundRatio = ratio;
+          }
+        }
+        event.preventDefault();
+        return;
+      }
+    }
     if (pointerId !== null) {
       if (event.pointerId !== pointerId) return;
       const now = performance.now();
@@ -310,9 +361,31 @@ async function start() {
     slime?.faceMotion.react('dizzy');
   };
   const release = event => {
+    if (touches.size === 2 && touches.has(event?.pointerId) && event.type === 'pointerup') {
+      touches.delete(event.pointerId);
+      const [id, remaining] = touches.entries().next().value;
+      pointerId = id;
+      physics.endPinch();
+      ray(remaining);
+      if (raycaster.ray.intersectPlane(plane, worldTarget)) {
+        physics.beginGrab(worldTarget.clone().sub(slime.group.position), worldTarget);
+      }
+      pressX = lastMoveX = shakeStartX = remaining.clientX;
+      pressY = lastMoveY = shakeStartY = remaining.clientY;
+      lastMoveTime = shakeWindowStart = performance.now();
+      shakePathDist = maxStretchDist = 0;
+      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      return;
+    }
+    if (touches.has(event?.pointerId) && event.type !== 'pointerup') event = undefined;
     if (pointerId === null || (event?.pointerId !== undefined && event.pointerId !== pointerId)) return;
     const id = pointerId;
     pointerId = null;
+    const capturedTouches = [...touches.keys()];
+    touches.clear();
+    for (const touchId of capturedTouches) {
+      if (canvas.hasPointerCapture(touchId)) canvas.releasePointerCapture(touchId);
+    }
     dizzyUntil = 0;
     physics.endGrab();
 

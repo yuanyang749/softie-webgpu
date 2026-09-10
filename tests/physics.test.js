@@ -12,6 +12,42 @@ function distance(a, b) {
 
 const point = { x: 0.65, y: 1.15, z: 0.96 };
 
+test('two-finger stretch and pinch deform along the grab axis and spring back', () => {
+  for (const ratio of [0.5, 2]) {
+    for (const axis of [{ x: 1, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }, { x: 1, y: 1, z: 0 }]) {
+      const jelly = new JellyPhysics();
+      jelly.beginPinch(axis);
+      jelly.movePinch(ratio);
+      advance(jelly, 0.5);
+      const length = Math.hypot(axis.x, axis.y);
+      const a = jelly.deform(-axis.x * 0.4 / length, 1.08 - axis.y * 0.4 / length, 0, {});
+      const b = jelly.deform(axis.x * 0.4 / length, 1.08 + axis.y * 0.4 / length, 0, {});
+      assert.ok(ratio > 1 ? distance(a, b) > 1.2 : distance(a, b) < 0.6);
+      assert.equal(jelly.diagnostics.pinching, true);
+      jelly.endGrab();
+      advance(jelly, 4);
+      assert.equal(jelly.diagnostics.pinching, false);
+      assert.ok(jelly.diagnostics.deformation < 0.0001);
+    }
+  }
+});
+
+test('pinch extremes stay finite, respect the floor, and reset clears the gesture', () => {
+  const jelly = new JellyPhysics();
+  jelly.beginPinch({ x: 1, y: 1, z: 0 });
+  for (const ratio of [1000, 0.00001, NaN, Infinity, -1, 0]) {
+    jelly.movePinch(ratio);
+    advance(jelly, 0.2);
+    const out = jelly.deform(-1.58, 0.035, -1.15, {});
+    assert.ok(Object.values(out).every(Number.isFinite));
+    assert.ok(out.y + jelly.position.y >= 0.012 - 1e-12);
+    assert.ok(Math.abs(jelly.diagnostics.modes.pinch) <= 0.85);
+  }
+  jelly.reset();
+  assert.equal(jelly.diagnostics.pinching, false);
+  assert.deepEqual(jelly.deform(point.x, point.y, point.z, {}), point);
+});
+
 test('rest is identity and reset leaves settings intact', () => {
   const jelly = new JellyPhysics();
   const out = {};

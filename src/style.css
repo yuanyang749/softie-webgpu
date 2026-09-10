@@ -672,23 +672,33 @@ fieldset {
   margin-top: 24px;
 }
 .accessory-pills {
-  display: flex;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
   margin-top: 10px;
-  flex-wrap: wrap;
 }
 .acc-pill {
   appearance: none;
   border: 1px solid #dcdfd8;
   background: rgba(255, 255, 255, 0.75);
   border-radius: 9999px;
-  padding: 6px 14px;
-  font-size: 13px;
+  padding: 6px 2px;
+  font-size: 12px;
   font-weight: 500;
   color: #555752;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box;
+  text-align: center;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+:lang(en) .acc-pill {
+  font-size: 11px;
+  letter-spacing: -0.02em;
 }
 .acc-pill:hover:not(:disabled) {
   border-color: #171817;

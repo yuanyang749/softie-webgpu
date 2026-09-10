@@ -31,6 +31,8 @@ export class JellyPhysics {
     this._localX = mode();
     this._localY = mode();
     this._localZ = mode();
+    this._pinch = mode();
+    this._pinchAxis = { x: 1, y: 0, z: 0 };
     this._anchor = vec();
     this._normal = vec();
     this._target = vec();
@@ -55,7 +57,7 @@ export class JellyPhysics {
       point.x = point.y = point.z = 0;
     }
     for (const state of [this._squash, this._oval, this._shearX, this._shearZ,
-      this._localX, this._localY, this._localZ]) {
+      this._localX, this._localY, this._localZ, this._pinch]) {
       state.value = state.velocity = 0;
     }
     this._accumulator = 0;
@@ -63,10 +65,13 @@ export class JellyPhysics {
     this._steps = 0;
     this._contacts = 0;
     this._dragging = false;
+    this._pinching = false;
+    this._pinchTarget = 0;
     this._entering = false;
     this._entryTime = 0;
     this._entryLanded = [false, false];
     this._scaleY = this._scaleX = this._scaleZ = 1;
+    this._pinchParallel = this._pinchTransverse = 1;
   }
 
   startEntry() {
@@ -108,6 +113,27 @@ export class JellyPhysics {
 
   endGrab() {
     this._dragging = false;
+    this.endPinch();
+  }
+
+  beginPinch(axis) {
+    if (!this._validPoint(axis)) return;
+    const length = Math.hypot(axis.x, axis.y, axis.z);
+    if (length < 0.001) return;
+    this._pinching = true;
+    for (const key of ['x', 'y', 'z']) this._pinchAxis[key] = axis[key] / length;
+    this._pinchTarget = this._pinch.value;
+    this._pinchStart = this._pinch.value;
+  }
+
+  movePinch(ratio) {
+    if (!this._pinching || !Number.isFinite(ratio) || ratio <= 0) return;
+    this._pinchTarget = clamp(this._pinchStart + Math.log(ratio) * 0.7, -0.5, 0.48);
+  }
+
+  endPinch() {
+    this._pinching = false;
+    this._pinchTarget = 0;
   }
 
   poke() {
@@ -142,6 +168,8 @@ export class JellyPhysics {
     const q = this._squash.value;
     const oval = this._oval.value;
     // Product of these scales is exactly one; shear also has unit determinant.
+    this._pinchParallel = Math.exp(this._pinch.value);
+    this._pinchTransverse = Math.exp(-this._pinch.value * 0.5);
     this._scaleY = Math.exp(q);
     this._scaleX = Math.exp(-q * 0.5 + oval);
     this._scaleZ = Math.exp(-q * 0.5 - oval);
@@ -271,6 +299,7 @@ export class JellyPhysics {
     }
 
     spring(this._squash, squashTarget, frequency, dampingRatio, dt, 0.40);
+    spring(this._pinch, this._pinchTarget, frequency, dampingRatio, dt, 0.85);
     spring(this._oval, 0, frequency * 0.84, dampingRatio, dt, 0.17);
     spring(this._shearX, clamp(-ax * 0.008, -0.28, 0.28), frequency * 0.70,
       dampingRatio * 0.91, dt, 0.33);
@@ -308,12 +337,26 @@ export class JellyPhysics {
       pz += weight * (central * uz + projection * dz);
     }
     py *= this._scaleY;
+    px *= this._scaleX;
+    pz *= this._scaleZ;
+    // Stretch along the finger axis and bulge across it: determinant stays one.
+    if (this._pinch.value !== 0) {
+      const parallel = this._pinchParallel;
+      const transverse = this._pinchTransverse;
+      const axis = this._pinchAxis;
+      const centerY = 1.08 * this._scaleY;
+      const projection = px * axis.x + (py - centerY) * axis.y + pz * axis.z;
+      const extension = projection * (parallel - transverse);
+      px = px * transverse + axis.x * extension;
+      py = centerY + (py - centerY) * transverse + axis.y * extension;
+      pz = pz * transverse + axis.z * extension;
+    }
     const height = py / 2.4;
     // Nonlinear height-only shear has determinant one and lets the crown lag the belly.
     const bend = py * (0.30 + height * 0.70);
-    out.x = px * this._scaleX + this._shearX.value * bend;
+    out.x = px + this._shearX.value * bend;
     out.y = Math.max(py, -this.position.y + 0.012);
-    out.z = pz * this._scaleZ + this._shearZ.value * bend;
+    out.z = pz + this._shearZ.value * bend;
     return out;
   }
 
@@ -326,6 +369,7 @@ export class JellyPhysics {
       localX: this._localX.value,
       localY: this._localY.value,
       localZ: this._localZ.value,
+      pinch: this._pinch.value,
     };
     const deformation = Math.hypot(...Object.values(modes));
     return {
@@ -337,6 +381,7 @@ export class JellyPhysics {
       position: { ...this.position },
       velocity: { ...this.velocity },
       dragging: this._dragging,
+      pinching: this._pinching,
       grounded: this.position.y < 0.005,
       deformation,
       energy: deformation * deformation + this.velocity.x ** 2

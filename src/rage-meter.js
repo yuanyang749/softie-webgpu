@@ -331,7 +331,7 @@ export class RageMeter {
     this.container.classList.toggle('is-max-rage', isMax);
 
     // Apply spring squash & stretch (preserving horizontal centering)
-    this.container.style.transform = `translateX(-50%) scale(${this.scaleX.toFixed(3)}, ${this.scaleY.toFixed(3)})`;
+    this.container.style.transform = `translateX(var(--rage-hud-offset, -50%)) scale(${this.scaleX.toFixed(3)}, ${this.scaleY.toFixed(3)})`;
 
     // Update percent text
     if (this.percentEl) {

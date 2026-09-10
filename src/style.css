@@ -1323,6 +1323,10 @@ input[type="range"]::-moz-range-thumb {
    Game-Style Kawaii Rage Meter HUD (打工怨气槽)
    ========================================================================== */
 
+.stage-controls {
+  display: contents;
+}
+
 .rage-meter-hud {
   position: absolute;
   bottom: 14px;
@@ -1559,6 +1563,73 @@ input[type="range"]::-moz-range-thumb {
 }
 .rage-meter-hud[data-mood="sleepy"] .rage-hud-badge {
   color: #0284c7;
+}
+
+@media (max-width: 899px) {
+  .stage-controls {
+    position: absolute;
+    bottom: 14px;
+    left: max(20px, var(--pad-left));
+    right: max(20px, var(--pad-right));
+    z-index: 10;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 100px;
+    align-items: stretch;
+    gap: 14px;
+    max-width: 440px;
+    margin-inline: auto;
+  }
+  .stage-controls .rage-meter-hud {
+    --rage-hud-offset: 0%;
+    position: static;
+    transform: none;
+    min-width: 0;
+    max-width: none;
+    min-height: 52px;
+    padding: 8px 12px 8px 8px;
+    gap: 8px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.04);
+  }
+  .stage-controls .rage-hud-track-wrap {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+    gap: 6px;
+  }
+  .stage-controls .rage-hud-avatar {
+    width: 28px;
+    height: 28px;
+  }
+  .stage-controls .rage-hud-badge {
+    min-width: 0;
+    flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .stage-controls .rage-hud-bar-capsule {
+    height: 10px;
+  }
+  .stage-controls .stage-poke-btn {
+    position: static;
+    width: 100%;
+    height: auto;
+    min-height: 52px;
+    padding: 0 12px;
+    font-size: 14px;
+    letter-spacing: 0;
+    gap: 6px;
+    box-shadow: 0 4px 12px rgba(23, 24, 23, 0.12);
+  }
+  .stage-controls .rage-meter-hud.is-max-rage,
+  .stage-controls .rage-meter-hud[data-mood="max"] {
+    animation-name: rage-hud-shake-mobile;
+  }
+}
+
+@keyframes rage-hud-shake-mobile {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: translate(-2px, -1px) rotate(-0.5deg); }
+  75% { transform: translate(2px, 1px) rotate(0.5deg); }
 }
 
 @keyframes rage-hud-shake {

@@ -95,6 +95,7 @@
       </section>
 
       <div id="stage" class="stage" data-interaction="idle" aria-busy="true">
+        <div class="stage-controls">
         <!-- Game-Style Kawaii Rage Meter HUD (打工怨气槽) -->
         <div id="rage-meter-hud" class="rage-meter-hud" data-mood="chill" aria-label="打工怨气进度条" data-i18n-label="rageMeterLabel" title="打工怨气槽" data-i18n-title="rageTitle">
           <div class="rage-hud-avatar-wrap">
@@ -124,8 +125,9 @@
           </div>
         </div>
 
-        <canvas id="slime-canvas" tabindex="0" aria-label="互动史莱姆：按住揉捏，拖动拎起，松手回弹。也可以按空格键戳一下。" data-i18n-label="canvas" aria-describedby="stage-help"></canvas>
         <button id="stage-poke" class="poke-button stage-poke-btn" type="button" data-action="poke" title="戳一下 · 空格键" data-i18n-title="pokeTitle"><span data-i18n="poke">戳一下</span><span class="sparkle" aria-hidden="true">✦</span></button>
+        </div>
+        <canvas id="slime-canvas" tabindex="0" aria-label="互动史莱姆：按住揉捏，拖动拎起，松手回弹。也可以按空格键戳一下。" data-i18n-label="canvas" aria-describedby="stage-help"></canvas>
         <div id="unsupported" class="stage-message stage-error" role="alert" hidden>
           <h2 data-i18n="waiting">等待 WebGPU</h2>
           <p id="error-message"></p>

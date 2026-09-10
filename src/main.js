@@ -422,6 +422,7 @@ async function start() {
   canvas.addEventListener('lostpointercapture', release);
   window.addEventListener('blur', () => { release(); clearGaze(); });
   window.addEventListener('keydown', event => {
+    if (document.body.classList.contains('playing-calm')) return;
     if (event.code !== 'Space' || event.repeat || /INPUT|BUTTON|TEXTAREA/.test(event.target.tagName)) return;
     event.preventDefault(); poke();
   });
@@ -434,6 +435,7 @@ async function start() {
   window.addEventListener('keydown', registerActivity, { passive: true });
 
   const ambientInterval = setInterval(() => {
+    if (document.body.classList.contains('playing-calm')) return;
     if (!ready || document.hidden || pointerId !== null) return;
     if (performance.now() - lastActivity > 12000 && !slime?.faceMotion.isSleeping) {
       sound.playAmbientBubble();
@@ -449,6 +451,7 @@ async function start() {
   ready = true;
   ui.setStatus('ready');
   renderer.setAnimationLoop(now => {
+    if (document.body.classList.contains('playing-calm')) { previous = now; return; }
     const elapsed = now - previous;
     previous = now;
     if (document.hidden) return;
